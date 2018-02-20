@@ -78,16 +78,6 @@ UART0 (PA1, PA0) sends data to the PC via the USB debug cable, 115200 baud rate
 Port A, SSI0 (PA2, PA3, PA5, PA6, PA7) sends data to Nokia5110 LCD
 
 */
-
-
-
-#include <stdint.h>
-#include "../inc/tm4c123gh6pm.h"
-
-#include <string.h>
-	
-
-
 #include "..\cc3100\simplelink\include\simplelink.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -103,87 +93,13 @@ Port A, SSI0 (PA2, PA3, PA5, PA6, PA7) sends data to Nokia5110 LCD
 #include "application_commands.h"
 #include "LED.h"
 #include "Nokia5110.h"
-#include "ST7735.h"
 #include <string.h>
-#include "fixed.h"
-#include <time.h>
 //#define SSID_NAME  "valvanoAP" /* Access point name to connect to */
 #define SEC_TYPE   SL_SEC_TYPE_WPA
 //#define PASSKEY    "12345678"  /* Password in case of secure AP */ 
 #define SSID_NAME  "Dhruv's iPhone"
-#define PASSKEY "Dumbpassword"
-//#define SSID_NAME  "Linksys02072-drv"
-//#define PASSKEY    "Aptdrv2020$"
+#define PASSKEY    "Dumbpassword"
 #define BAUD_RATE   115200
-
-void ADC0_InitSWTriggerSeq3_Ch9(void){ 
-  SYSCTL_RCGCADC_R |= 0x0001;   // 7) activate ADC0 
-                                  // 1) activate clock for Port E
-  SYSCTL_RCGCGPIO_R |= 0x10;
-  while((SYSCTL_PRGPIO_R&0x10) != 0x10){};
-  GPIO_PORTE_DIR_R &= ~0x04;      // 2) make PE4 input
-  GPIO_PORTE_AFSEL_R |= 0x04;     // 3) enable alternate function on PE2
-  GPIO_PORTE_DEN_R &= ~0x04;      // 4) disable digital I/O on PE2
-  GPIO_PORTE_AMSEL_R |= 0x04;     // 5) enable analog functionality on PE2
-    
-//  while((SYSCTL_PRADC_R&0x0001) != 0x0001){};    // good code, but not yet implemented in simulator
-
-
-  ADC0_PC_R &= ~0xF;              // 7) clear max sample rate field
-  ADC0_PC_R |= 0x1;               //    configure for 125K samples/sec
-  ADC0_SSPRI_R = 0x0123;          // 8) Sequencer 3 is highest priority
-  ADC0_ACTSS_R &= ~0x0008;        // 9) disable sample sequencer 3
-  ADC0_EMUX_R &= ~0xF000;         // 10) seq3 is software trigger
-  ADC0_SSMUX3_R &= ~0x000F;       // 11) clear SS3 field
-  ADC0_SSMUX3_R += 1;             //    set channel ain 1 PE2
-  ADC0_SSCTL3_R = 0x0006;         // 12) no TS0 D0, yes IE0 END0
-  ADC0_IM_R &= ~0x0008;           // 13) disable SS3 interrupts
-  ADC0_ACTSS_R |= 0x0008;         // 14) enable sample sequencer 3
-		ADC0_SAC_R=0x06;        // 14) enable sample sequencer 3
-}
-
-
-//------------ADC0_InSeq3------------
-// Busy-wait Analog to digital conversion
-// Input: none
-// Output: 12-bit result of ADC conversion
-uint32_t ADC0_InSeq3(void){  uint32_t result;
-  ADC0_PSSI_R = 0x0008;            // 1) initiate SS3
-  while((ADC0_RIS_R&0x08)==0){};   // 2) wait for conversion done
-    // if you have an A0-A3 revision number, you need to add an 8 usec wait here
-  result = ADC0_SSFIFO3_R&0xFFF;   // 3) read result
-  ADC0_ISC_R = 0x0008;             // 4) acknowledge completion
-  return result;
-}
-
-char number[6];
-
-void Conversion(){
-	int result;
-	char String_Array[10]={0};
-	
-		result = ADC0_InSeq3();
-		
-		result = result *1280 /(0xFFF);
-	
-	ST7735_sDecOut2(result);
-	number[0]=48+(result/1000);
-	result= result%1000;
-	number[1]=48+(result/100);
-	result= result%100;
-	
-	number[2]='.';
-	
-	number[3]=48+(result/10);
-	result= result%10;
-	
-	number[4]=48+(result);
-
-	number[5]=0;
-		
-}
-
-
 void UART_Init(void){
   SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
   SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
@@ -271,73 +187,12 @@ UINT32  g_Status = 0;
  */
 
 static int32_t configureSimpleLinkToDefaultState(char *);
-int read_RECV_BUF(void){
-	char Array_of_chars[14] = {0};
-	char Array_of_temp[10] = {0};
-		char Array_of_numbers[7] = {0};
-	int comp_flag = 0;
-	int index;
-		int j;
-	index = 0;
-	Array_of_temp[0] = 'e';
-		Array_of_temp[1]= 'm';;
-		Array_of_temp[2]= 'p';;
-		Array_of_temp[3]= 0x22;;
-		Array_of_temp[4]= ':';;
-	for(index = 0; index< MAX_RECV_BUFF_SIZE -10; index++){
-		int p = 0;
-		Array_of_chars[0] = Recvbuff[index];
-		Array_of_chars[1] = Recvbuff[index+1];
-		Array_of_chars[2] = Recvbuff[index+2];
-		Array_of_chars[3] = Recvbuff[index+3];
-		Array_of_chars[4] = Recvbuff[index+4];
-		Array_of_chars[5] = Recvbuff[index+5];
-		Array_of_chars[6] = Recvbuff[index+6];
-		Array_of_chars[7] = Recvbuff[index+7];
-		Array_of_chars[8] = Recvbuff[index+8];
-		Array_of_chars[9] = Recvbuff[index+9];
-		for(j = 0; j< (10- 4); j++){
-			
-			if(Array_of_temp[0] == Array_of_chars[j]){
-				if(Array_of_temp[1] == Array_of_chars[j+1]){
-					if(Array_of_temp[2] == Array_of_chars[j+2]){
-						if(Array_of_temp[3] == Array_of_chars[j+3]){
-							if(Array_of_temp[4] == Array_of_chars[j+4]){
-								while(Recvbuff[j+5+index + p] != ',' && p < 6){
-									Array_of_numbers[p] = Recvbuff[j+5+index + p];
-									p += 1;
-								}
-								Array_of_numbers[p] = 'C';
-								Array_of_numbers[p+1]='\n';
-								//index = MAX_RECV_BUFF_SIZE -10;
-								//j = 10-4;
-								ST7735_OutString(Array_of_numbers);
-								return comp_flag;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return 0;
-	
-}
-void SysTick_Wait(uint32_t delay){
-  volatile uint32_t elapsedTime;
-  uint32_t startTime = NVIC_ST_CURRENT_R;
-  do{
-    elapsedTime = (startTime-NVIC_ST_CURRENT_R)&0x00FFFFFF;
-  }
-  while(elapsedTime <= delay);
-}
-void SysTick_Wait10ms(uint32_t delay){
-  uint32_t i;
-  for(i=0; i<delay; i++){
-    SysTick_Wait(500000);  // wait 10ms (assumes 50 MHz clock)
-  }
-}
-	
+
+
+/*
+ * STATIC FUNCTION DEFINITIONS -- End
+ */
+
 
 void Crash(uint32_t time){
   while(1){
@@ -345,40 +200,20 @@ void Crash(uint32_t time){
     LED_RedToggle();
   }
 }
-
-/*
- * STATIC FUNCTION DEFINITIONS -- End
- */
-
-
-
 /*
  * Application's entry point
  */
 // 1) change Austin Texas to your city
 // 2) you can change metric to imperial if you want temperature in F
-#define REQUEST "GET /data/2.5/weather?q=austin&APPID=7955b93f5a0fafcd6b9fd879b0e7a2df&units=metric HTTP/1.1\r\nUser-Agent: Keil\r\nHost:api.openweathermap.org\r\nAccept: */*\r\n\r\n"
-//#define REQUEST5 "GET /query?city=Austin%20Texas&id=Dhruv%20Sandesara&greet=Int%20Temp%3D27C&edxcode=8086 HTTP/1.1\r\nUser-Agent: Keil\r\nHost:ee445l-djs3967.appspot.com\r\n\r\n"
-#define REQUEST3 "GET /v2/list-time-zone?key=LYOP4LXCEE5Q&format=json&zone=*Chicago* HTTP/1.1\r\nUser-Agent: Keil\r\nHost:api.timezonedb.com\r\n\r\n"
-
-#define SERVER3 "api.timezonedb.com"
-char  REQUEST2[500]= "GET /query?city=Austin%20Texas&id=Dhruv%20Sandesara&greet=ADC%20Volt%3D62222V&edxcode=8086 HTTP/1.1\r\nUser-Agent: Keil\r\nHost:ee445l-djs3967.appspot.com\r\n\r\n";	
-#define SERVER  "ee445l-djs3967.appspot.com"
-//#define REQUEST "GET /query?city=Austin%20Texas&id=Jonathan%20Valvano&greet=Hello%20from%20Austin,%20Jon%20and%20Ramesh&edxcode=8086  HTTP/1.1\r\nUser-Agent: Keil\r\nHost: embedded-systems-server.appspot.com\r\n\r\n"
-
+#define REQUEST "GET /data/2.5/weather?q=Austin%20Texas&APPID=7955b93f5a0fafcd6b9fd879b0e7a2df&units=metric HTTP/1.1\r\nUser-Agent: Keil\r\nHost:api.openweathermap.org\r\nAccept: */*\r\n\r\n"
 // 1) go to http://openweathermap.org/appid#use 
 // 2) Register on the Sign up page
 // 3) get an API key (APPID) replace the 1234567890abcdef1234567890abcdef with your APPID
-
-
-
 int main(void){int32_t retVal;  SlSecParams_t secParams;
   char *pConfig = NULL; INT32 ASize = 0; SlSockAddrIn_t  Addr;
   initClk();        // PLL 50 MHz
   UART_Init();      // Send data to PC, 115200 bps
   LED_Init();       // initialize LaunchPad I/O 
-	ADC0_InitSWTriggerSeq3_Ch9();
-	ST7735_InitR(INITR_REDTAB);
   UARTprintf("Weather App\n");
   retVal = configureSimpleLinkToDefaultState(pConfig); // set policies
   if(retVal < 0)Crash(4000000);
@@ -394,10 +229,6 @@ int main(void){int32_t retVal;  SlSecParams_t secParams;
   UARTprintf("Connected\n");
   while(1){
    // strcpy(HostName,"openweathermap.org");  // used to work 10/2015
-		
-		//while(1){
-    //strcpy(HostName,"api.openweathermap.org"); // works 9/2016
-
     strcpy(HostName,"api.openweathermap.org"); // works 9/2016
     retVal = sl_NetAppDnsGetHostByName(HostName,
              strlen(HostName),&DestinationIP, SL_AF_INET);
@@ -417,147 +248,9 @@ int main(void){int32_t retVal;  SlSecParams_t secParams;
         sl_Close(SockID);
         LED_GreenOn();
         UARTprintf("\r\n\r\n");
-        UARTprintf(Recvbuff);  
-				UARTprintf("\r\n");
-				ST7735_OutString("Temp: ");
-				read_RECV_BUF();//prints the temp
-				
-			
+        UARTprintf(Recvbuff);  UARTprintf("\r\n");
       }
     }
-		ST7735_OutString("ADC Value: ");
-		Conversion();//prints the adc value
-		//REQUEST2=request2p1+number+request2p2;
-		
-
-		while(1){
-			int breaker=0;
-			
-    retVal = sl_NetAppDnsGetHostByName(SERVER,
-             strlen(SERVER),&DestinationIP, SL_AF_INET);
-    if(retVal == 0){
-      Addr.sin_family = SL_AF_INET;
-      Addr.sin_port = sl_Htons(80);
-      Addr.sin_addr.s_addr = sl_Htonl(DestinationIP);// IP to big endian 
-      ASize = sizeof(SlSockAddrIn_t);
-      SockID = sl_Socket(SL_AF_INET,SL_SOCK_STREAM, 0);
-      if( SockID >= 0 ){
-        retVal = sl_Connect(SockID, ( SlSockAddr_t *)&Addr, ASize);
-      }
-      if((SockID >= 0)&&(retVal >= 0)){
-				REQUEST2[71]=number[0];
-				REQUEST2[72]=number[1];
-				REQUEST2[73]=number[2];
-				REQUEST2[74]=number[3];
-				REQUEST2[75]=number[4];
-				
-        strcpy(SendBuff,REQUEST2); 
-        sl_Send(SockID, SendBuff, strlen(SendBuff), 0);// Send the HTTP GET 
-        sl_Recv(SockID, Recvbuff, MAX_RECV_BUFF_SIZE, 0);// Receive response 
-        sl_Close(SockID);
-        LED_GreenOn();
-        UARTprintf("\r\n\r\n");
-        UARTprintf(Recvbuff);  
-				UARTprintf("\r\n");
-				breaker=1;
-
-				
-			
-      }
-			
-    }
-		if(breaker)
-				break;
-		
-		}
-		
-		
-		while(1){
-			int breaker=0;
-			
-    retVal = sl_NetAppDnsGetHostByName(SERVER3,
-             strlen(SERVER),&DestinationIP, SL_AF_INET);
-    if(retVal == 0){
-      Addr.sin_family = SL_AF_INET;
-      Addr.sin_port = sl_Htons(80);
-      Addr.sin_addr.s_addr = sl_Htonl(DestinationIP);// IP to big endian 
-      ASize = sizeof(SlSockAddrIn_t);
-      SockID = sl_Socket(SL_AF_INET,SL_SOCK_STREAM, 0);
-      if( SockID >= 0 ){
-        retVal = sl_Connect(SockID, ( SlSockAddr_t *)&Addr, ASize);
-      }
-      if((SockID >= 0)&&(retVal >= 0)){
-				
-	//			SysTick_Wait10ms(50);
-	//			for(int i=0; i<10000;i++){
-	//				for(int j=0; j<10000;j++){
-	//			int d=0;
-	//				d++;}
-	//			}
-				while(1){
-        strcpy(SendBuff,REQUEST3); 
-        sl_Send(SockID, SendBuff, strlen(SendBuff), 0);// Send the HTTP GET 
-        sl_Recv(SockID, Recvbuff, MAX_RECV_BUFF_SIZE, 0);// Receive response 
-        sl_Close(SockID);
-        LED_GreenOn();
-  //      UARTprintf("\r\n\r\n");
-   //     UARTprintf(Recvbuff);  
-		//		UARTprintf("\r\n");
-			//	breaker=1;
-				
-				if(Recvbuff[13]!='B'){
-				char timestamp[11];
-				timestamp[0]= Recvbuff[339];
-				timestamp[1]= Recvbuff[340];
-				timestamp[2]= Recvbuff[341];
-				timestamp[3]= Recvbuff[342];
-				timestamp[4]= Recvbuff[343];
-				timestamp[5]= Recvbuff[344];
-				timestamp[6]= Recvbuff[345];
-				timestamp[7]= Recvbuff[346];
-				timestamp[8]= Recvbuff[347];
-				timestamp[9]= Recvbuff[348];
-				
-				
-				
-				//		const time_t current_time=(time_t)atoi("1519085333");
-				const time_t current_time=(time_t)atoi(timestamp);
-
-    // Get current time
-		char* time_string="";
-		
-     time_string=ctime(&current_time);
-		
-		ST7735_SetCursor(0,2);
-		
-		time_string[7]='\n';
-		
-		ST7735_OutString("\n");
-		ST7735_OutString(time_string);
-						for(int i=0; i<10000;i++){
-					for(int j=0; j<10000;j++){
-				int d=0;
-				d++;}
-				}
-	}
-}
-				
-			
-      }
-			
-    }
-		if(breaker)
-				break;
-		
-		}
-		
-		
-		
-
-
-
-
-
     while(Board_Input()==0){}; // wait for touch
     LED_GreenOff();
   }
